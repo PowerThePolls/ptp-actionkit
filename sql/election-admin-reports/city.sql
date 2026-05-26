@@ -1,6 +1,7 @@
 Power the Polls Election Admin Report (City)
+-- ActionKit report: https://ptp.actionkit.com/admin/reports/queryreport/2471/change/
 
-SELECT 
+SELECT
     u.first_name,
     u.last_name,
     u.email,
@@ -11,19 +12,26 @@ SELECT
     uf.value AS county,
     u.state,
     u.zip,
-    COALESCE((SELECT COALESCE(GROUP_CONCAT(DISTINCT TRIM(value) ORDER BY value SEPARATOR ', '), '')
-              FROM core_action a
-              JOIN core_actionfield af ON a.id = af.parent_id
-              WHERE af.name = 'language'
-                AND a.user_id = u.id), '') AS languages,
     COALESCE((SELECT MAX(DISTINCT uf.value)
               FROM core_userfield uf
               WHERE uf.name = 'tech_skills'
                 AND uf.parent_id = u.id), '') AS tech_skills,
+    COALESCE((SELECT MAX(DISTINCT uf.value)
+              FROM core_userfield uf
+              WHERE uf.name = 'first_time_poll_worker'
+                AND uf.parent_id = u.id), '') AS first_time_poll_worker,
+    COALESCE((SELECT MAX(DISTINCT uf.value)
+              FROM core_userfield uf
+              WHERE uf.name = 'prior_experience_being_poll_worker'
+                AND uf.parent_id = u.id), '') AS prior_experience_being_poll_worker,
+    COALESCE((SELECT MAX(DISTINCT uf.value)
+              FROM core_userfield uf
+              WHERE uf.name = 'fluent_second_language'
+                AND uf.parent_id = u.id), '') AS fluent_second_language,
     CAST((SELECT MAX(created_at)
           FROM core_action
           WHERE user_id = u.id
-            AND (page_id = 12 OR page_id = 171)) AS DATE) AS signup_date
+            AND page_id = 12) AS DATE) AS signup_date
 FROM 
     core_user AS u
 JOIN 
@@ -32,11 +40,18 @@ WHERE
     uf.name = 'county' 
     AND LOWER(u.state) = LOWER({state})
     AND LOWER(u.city) = LOWER({city})
+    AND EXISTS (
+        SELECT 1
+        FROM core_action
+        WHERE user_id = u.id
+            AND page_id = 12
+            AND created_at >= '2025-01-01'
+    )
     AND NOT EXISTS (
-        SELECT 1 
-        FROM core_action 
-        JOIN core_page_tags USING (page_id) 
-        WHERE core_action.user_id = u.id 
+        SELECT 1
+        FROM core_action
+        JOIN core_page_tags USING (page_id)
+        WHERE core_action.user_id = u.id
           AND core_page_tags.tag_id IN (137)
     )
     AND NOT EXISTS (
